@@ -1,0 +1,38 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+.venv-build/
+
+# ── 本地打包环境、缓存与发行产物 ──
+build/
+dist/
+
+# ── 课程资料：课件 PDF 与笔记属本地数据，不入库 ──
+# （若以后想给 notes.md 单独做版本管理，可改为：
+#    courses/**
+#    !courses/**/notes.md
+#  ）
+courses/
+
+# ── 第三方前端依赖（已本地化，可重新获取）──
+web/vendor/
+
+# ── 本机相关 ──
+python-path.txt
+.env
+.env.*
+!.env.template
+
+# ── 运行时产物 ──
+logs/
+*.log
+annotations.json
+
+# ── 系统与编辑器噪音 ──
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,6 @@
+# 可选 PDF 辅助工具依赖；阅读服务只使用 Python 标准库。
+# 与当前本机已验证版本一致；此文件本身不会安装或修改环境。
+# 需要准备独立工具环境时：python -m pip install -r requirements-tools.txt
+pypdf==6.18.1
+pypdfium2==5.13.0
+Pillow==12.3.0

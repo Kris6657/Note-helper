@@ -1,0 +1,24 @@
+# 换行统一成 LF。
+#
+# 没有这一条，git 会把仓库里的 LF 在检出的那一刻换成 CRLF，于是每次
+# git status 都有一堆文件"被修改过"，而 git diff 又看不出改了什么。
+# 这个项目同时有 Python、JS、Markdown 和 .bat，混着两套换行迟早出事。
+* text=auto eol=lf
+
+# 二进制文件：别做换行转换，也别尝试 diff
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+
+# Windows 批处理例外：cmd.exe 解析 LF-only 的 .bat 时，遇到 goto/标签/括号块
+# 会出难以复现的怪问题。这里必须回到 CRLF。
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# 生成的 JSON 不做换行归一化以外的加工
+*.json  text eol=lf

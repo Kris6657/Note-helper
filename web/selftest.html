@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Note-helper 诊断</title>
+<style>
+  body { font: 14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",system-ui; padding: 18px 22px; color: #26251f; }
+  #s { font-size: 21px; font-weight: 600; margin-bottom: 8px; }
+  .ok { color: #3b6d11; } .bad { color: #a32d2d; } .warn { color: #854f0b; }
+  pre { white-space: pre-wrap; font-size: 12.5px; color: #444; border-left: 3px solid #ddd; padding-left: 12px; margin: 0; }
+  canvas { border: 1px solid #ccc; max-width: 520px; margin-top: 12px; display: block; }
+</style>
+</head>
+<body>
+<div id="s">running…</div>
+<pre id="d"></pre>
+<script src="/vendor/pdf.min.js"></script>
+<script src="/vendor/marked.min.js"></script>
+<script type="module">
+import { renderNotes, decorate, buildMastery } from './js/notes.js';
+const s = document.getElementById('s'), d = document.getElementById('d');
+const log = m => { d.textContent += m + '\n'; };
+const withTimeout = (p, ms, tag) => Promise.race([
+  p,
+  new Promise((_, rej) => setTimeout(() => rej(new Error(tag + ' 超时 ' + ms + 'ms')), ms)),
+]);
+const du = (label, url) => withTimeout(fetch(url).then(async r => {
+  const b = await r.arrayBuffer();
+  log(label + ' -> HTTP ' + r.status + '  ' + b.byteLength + ' bytes  type=' + (r.headers.get('content-type') || '?'));
+  if (!r.ok) throw new Error(label + ' 请求失败');
+  return b;
+}), 12000, label);
+
+(async () => {
+  try {
+    let passed = 0;
+    const check = (condition, name) => {
+      if (!condition) throw new Error(name);
+      passed++;
+      log('PASS ' + name);
+    };
+    const article = document.createElement('article');
+    const sample = '# 示例\n\n## 知识点（P1–P2）\n\n- 列表项\n\n| 项目 | 含义 |\n|---|---|\n| A | B |\n\n'
+      + '> 引用（P2）\n\n```python\nprint("<tag>")\n```\n\n[[Module 2]]\n\n- [x] 任务';
+    const blocks = renderNotes(article, sample);
+    decorate(article, { isKnownModule: () => true });
+    check(article.querySelectorAll('tr').length === 2, '保留表格行');
+    check(article.querySelector('code').textContent.includes('<tag>'), '保留代码文本');
+    check(article.querySelector('blockquote') && article.querySelector('li'), '保留引用与列表');
+    check(article.querySelector('.pagechip')?.dataset.page === '1', '页码标签仍可生成');
+    check(article.querySelector('.modlink'), '跨模块标签仍可生成');
+    check(blocks.find(b => b.text === '列表项')?.page === 1, '子块继承页码');
+    check(buildMastery(blocks).leafUnits.length === 1, '掌握点层级保留');
+    check(article.querySelector('input').disabled && article.querySelector('input').checked, '任务框只读');
+    const referenceHashes = blocks.map(b => b.hash).join(',');
+    check(renderNotes(document.createElement('article'), sample).map(b => b.hash).join(',') === referenceHashes, '内容指纹稳定');
+    const dangerous = '<script>window.__noteAttack = 1;<\/script><style>body{display:none}</style>'
+      + '<img src="https://example.invalid/track" onerror="window.__noteAttack=2">'
+      + '<a href="java&#x73;cript:alert(1)" onclick="alert(2)">危险链接</a>'
+      + '<iframe srcdoc="bad"></iframe><svg onload="alert(1)"><a href="javascript:alert(1)">x</a></svg>'
+      + '<form action="https://example.invalid"><input name="moduleBtn"></form>'
+      + '<p id="moduleBtn" style="display:none" onmouseover="alert(1)">安全文字（P3）</p>'
+      + '<a href="https://example.invalid/">普通链接</a><img src="javascript:alert(1)">';
+    renderNotes(article, dangerous);
+    check(!article.querySelector('script,style,iframe,svg,math,form,object,embed'), '丢弃可执行和内嵌内容');
+    check(!article.querySelector('img'), '阻止远程与危险图片');
+    check(Array.from(article.querySelectorAll('*')).every(el => Array.from(el.attributes)
+      .every(a => !/^on/i.test(a.name) && !['style', 'id', 'name', 'srcdoc'].includes(a.name))), '去除事件和页面干扰属性');
+    check(!article.querySelector('a').hasAttribute('href'), '阻止编码后的危险协议');
+    check(article.querySelector('a[href]')?.rel === 'noopener noreferrer', '普通外链隔离来源与窗口');
+    check(article.textContent.includes('安全文字（P3）'), '过滤后保留正常文字');
+    log('笔记渲染检查通过：' + passed + ' 项（不读写课程批注）');
+
+    log('pdfjsLib  = ' + (pdfjsLib.version || '?'));
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdf.worker.min.js';
+
+    const list = await withTimeout(fetch('/api/modules').then(r => r.json()), 8000, 'modules');
+    // 只读比较过滤前后的文字与 Markdown 块结构，帮助判断旧批注指纹是否可能变化。
+    let compatible = 0, filtered = 0;
+    const shape = root => Array.from(root.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,pre,tr'))
+      .map(el => el.tagName + ':' + el.textContent.replace(/\s+/g, ' ').trim()).join('\n');
+    for (const item of (list.modules || []).filter(x => x.hasNotes)) {
+      const response = await withTimeout(fetch('/api/module/' + encodeURIComponent(item.course)
+        + '/' + encodeURIComponent(item.module) + '/notes'), 8000, 'notes');
+      if (!response.ok) throw new Error('现有笔记读取失败');
+      const { markdown } = await response.json();
+      const before = document.createElement('template');
+      before.innerHTML = window.marked.parse(markdown || '');
+      const after = document.createElement('article');
+      renderNotes(after, markdown || '');
+      if (shape(before.content) === shape(after)) compatible++;
+      else filtered++;
+    }
+    log('现有笔记兼容检查：' + compatible + ' 份文字与块结构一致，' + filtered + ' 份经安全过滤后变化（未写入批注）');
+    const m = (list.modules || []).find(x => x.hasSlides);
+    if (!m) {
+      s.textContent = '笔记检查通过；没有 PDF 模块，跳过 PDF 检查';
+      s.className = 'warn';
+      return;
+    }
+    log('module    = ' + m.id);
+
+    const dir = '/api/module/' + encodeURIComponent(m.course) + '/' + encodeURIComponent(m.module);
+    await du('worker.js ', '/vendor/pdf.worker.min.js');
+    await du('slides.pdf', dir + '/pdf');
+
+    const t0 = performance.now();
+    const doc = await withTimeout(pdfjsLib.getDocument({ url: dir + '/pdf',
+      cMapUrl: '/vendor/cmaps/', cMapPacked: true, isEvalSupported: false }).promise, 20000, 'getDocument');
+    log('getDocument OK  pages=' + doc.numPages + '  ' + Math.round(performance.now() - t0) + 'ms');
+
+    const page = await doc.getPage(1);
+    const vp1 = page.getViewport({ scale: 1 });
+    log('page1 size = ' + Math.round(vp1.width) + ' x ' + Math.round(vp1.height));
+    const vp = page.getViewport({ scale: 0.58 });
+    const c = document.createElement('canvas');
+    c.width = vp.width; c.height = vp.height;
+    document.body.appendChild(c);
+    await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+    log('page1 rendered');
+
+    await doc.destroy();
+    s.textContent = filtered ? '通道检查通过；部分笔记被过滤，请检查兼容性日志' : '笔记安全与 PDF 通道全部通过 ✓';
+    s.className = filtered ? 'warn' : 'ok';
+  } catch (e) {
+    s.textContent = '失败：' + e.message;
+    s.className = 'bad';
+    log(String((e && e.stack) || e));
+  }
+})();
+</script>
+</body>
+</html>

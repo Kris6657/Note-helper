@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Note-helper · 双栏对照</title>
+<link rel="stylesheet" href="/style.css">
+<script>
+  /* 在样式生效前先把主题与模式定下来，避免刷新时闪一下浅色 */
+  try {
+    var t = localStorage.getItem('nh-theme');
+    if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.dataset.theme = t;
+    document.documentElement.dataset.mode = localStorage.getItem('nh-mode') || 'read';
+  } catch (e) {}
+</script>
+</head>
+<body>
+
+<header id="topbar">
+  <span id="brand">Note-helper</span>
+
+  <div id="modulePick">
+    <button id="moduleBtn" title="切换课程 / 模块">
+      <span id="moduleLabel">载入中…</span>
+      <span class="caret"></span>
+    </button>
+    <div id="modulePanel" hidden>
+      <input id="moduleFilter" type="search" placeholder="筛选课程或模块…" autocomplete="off">
+      <div id="moduleList"></div>
+    </div>
+  </div>
+
+  <span class="grow"></span>
+
+  <div id="modeSeg" class="seg" title="阅读模式下点笔记不会有任何反应">
+    <button data-mode="read" class="on">阅读</button>
+    <button data-mode="annotate">批注</button>
+  </div>
+
+  <label id="syncWrap" class="toggle" title="按页码锚点做插值同步，不会随页累积漂移">
+    <input type="checkbox" id="syncChk"><span>同步滚动</span>
+  </label>
+
+  <div id="layoutSeg" class="seg">
+    <button data-layout="both" class="on">对照</button>
+    <button data-layout="notes">只看笔记</button>
+    <button data-layout="slides">只看课件</button>
+  </div>
+
+  <div id="searchWrap">
+    <input id="searchInput" type="search" placeholder="搜索笔记  Ctrl+K" autocomplete="off">
+    <div id="searchResults" hidden></div>
+  </div>
+
+  <button id="themeBtn" class="iconBtn" title="切换深色 / 浅色">深色</button>
+</header>
+
+<div id="backdrop" hidden></div>
+
+<main id="main" data-layout="both">
+  <section id="paneSlides" class="pane">
+    <div class="paneBar">
+      <button id="pagePrev" class="navBtn" title="上一页  ←">‹ 上一页</button>
+      <input id="pageInput" type="number" min="1" value="1" title="直接输入页码，回车跳转">
+      <span id="pageTotal">/ —</span>
+      <button id="pageNext" class="navBtn" title="下一页  →">下一页 ›</button>
+      <span class="grow"></span>
+      <button id="zoomOut" class="icon" title="缩小">−</button>
+      <button id="zoomFit" title="恢复适合宽度">100%</button>
+      <button id="zoomIn" class="icon" title="放大">+</button>
+    </div>
+    <div id="pageMarkBar" class="paneBar" aria-label="课件页标记与筛选">
+      <button id="pageStar" class="navBtn pageMark" aria-pressed="false" title="星标：对我个人重要" disabled>☆ 星标</button>
+      <button id="pageFlag" class="navBtn pageMark" aria-pressed="false" title="旗帜：老师强调或课程重点" disabled>⚑ 旗帜</button>
+      <select id="pageFilter" aria-label="筛选当前 Module 的课件页" disabled>
+        <option value="all">全部页面</option>
+        <option value="star">星标页</option>
+        <option value="flag">旗帜页</option>
+        <option value="marked">全部已标记页</option>
+      </select>
+      <span id="pageFilterCount" class="dim" role="status"></span>
+    </div>
+    <div id="pdfScroll" class="scroll">
+      <div id="pdfEmpty" role="status" hidden>当前筛选没有匹配的课件页，可切回「全部页面」添加标记。</div>
+      <div id="pdfPages"></div>
+    </div>
+  </section>
+
+  <div id="splitter" title="拖动调整两栏宽度"></div>
+
+  <section id="paneNotes" class="pane">
+    <div class="paneBar">
+      <span id="progressText">已掌握 0 / 0</span>
+      <div class="bar"><i id="progressFill"></i></div>
+      <select id="masterySel" title="掌握点按 Markdown 标题层级切分"></select>
+      <span class="grow"></span>
+      <span id="modeHint" class="dim">阅读模式 · 切到「批注」才能标注</span>
+      <span id="annoStatus" class="dim" role="status" aria-live="polite"></span>
+    </div>
+    <div id="notesScroll" class="scroll"><article id="notesBody"></article></div>
+  </section>
+</main>
+
+<div id="pop" hidden></div>
+<div id="toast" hidden></div>
+
+<script src="/vendor/marked.min.js"></script>
+<script src="/vendor/pdf.min.js"></script>
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>
