@@ -260,7 +260,7 @@ python -m pip install -r requirements-tools.txt
 | 左栏空白，右栏正常 | PDF 没读到。看 selftest 页的报错 |
 | 页码标签没出现 | `notes.md` 里的页码写法不在约定之内，或这个模块还没放 `notes.md` |
 | 页数显示「无课件」 | 模块目录里没有 `slides.pdf` |
-| 中文 / 日文课件有整页文字缺失或乱码 | 缺 CMap。确认 `web/vendor/cmaps/` 还在（见「第三方组件」一节） |
+| 中文 / 日文课件有整页文字缺失或乱码 | 缺 CMap。确认 `web/vendor/pdfjs-6.4.299/cmaps/` 还在（见「第三方组件」一节） |
 | 提示 Python not found | 确认 `python --version` 或 `py -3 --version` 可用；见下一节 |
 | 提示缺资源或 SHA-256 不符 | 运行 `python tools/prepare_vendor.py --check`。缺资源按首次运行步骤补齐；校验不符时先保留原文件，不要混用不同版本 |
 | 没有找到模块 | 确认已经把示例复制到 `courses/演示课程/Module 1/`，而不是只放在 `examples/` 中 |
@@ -283,7 +283,7 @@ python -m pip install -r requirements-tools.txt
 
 ## 当前验证范围与限制
 
-- 已验证Windows + Python 3.13 的源码运行、35 项标准库回归及浏览器笔记／PDF 检查；其他系统尚无完整验收。
+- 已验证 Windows + Python 3.13 的源码运行、35 项标准库回归及浏览器笔记／PDF 检查；其他系统尚无完整验收。
 - PDF 左栏目前只绘制图像，没有文字层，不能选择或通过浏览器 `Ctrl+F` 搜索课件文字；右栏笔记有独立搜索。
 - 批注冲突检查覆盖连接同一服务的多个窗口；没有跨独立服务进程的事务保证。
 - PDF.js 已固定为 6.4.299。服务禁止 JavaScript 动态求值，仅允许本地解码所需 WASM；仍需跟进组件公告，见第三方声明。
@@ -301,7 +301,7 @@ python -m venv .venv-build
 
 先按前文准备前端资源。构建脚本自身不会安装或下载依赖；它使用新的 `build/` 与 `dist/` 子目录，保留已有产物。输出包含 exe 所在的整个目录、ZIP、ZIP 的 SHA-256 文件及包内文件校验清单，只带自制示例，不带真实课程、Git 历史或私用项目档案。
 
-可通过 `-Version` 指定预览版本，例如 `.\tools\build_windows.ps1 -Version 0.1.0-preview.2`。产物保留在本机，不会自动上传或发布。
+可通过 `-Version` 指定预览版本，例如 `.\tools\build_windows.ps1 -Version 0.1.0-preview.3`。产物保留在本机，不会自动上传或发布。
 
 构建和自动验收已在现有 PowerShell 7 执行。若系统执行策略阻止脚本，保留提示，不要为构建而关闭保护或自行改系统配置。普通使用者可直接运行已构建的 exe。
 
