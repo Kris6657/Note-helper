@@ -31,3 +31,12 @@
 - 课程、批注、凭据、`python-path.txt`、vendor、虚拟环境、构建输出与日志不入 Git。新增可公开示例必须自制且有权授权。
 - 对外项目署名为 KrisZ；保留所有第三方版权与许可，不写入私人路径或联系信息。
 - 上传发布、破坏性操作和系统设置变更需要明确授权。功能、数据格式或依赖范围变化先说明影响。
+
+
+## PDF.js 6.4.299 维护
+
+- 官方 legacy 显示层与同版 worker 位于 `web/vendor/pdfjs-6.4.299/`；共 204 个固定资源，marked 12.0.2 不变。
+- 正常阅读与诊断共用 `pdfview.js` 的 `createPdfDocument()`；不引入旧全局脚本、完整 Viewer 或 PDF 脚本沙箱。
+- 保留字体、ICC、WASM 和全部许可，严格按清单打包；通过加载任务 `destroy()` 释放资源。
+- CSP 只额外允许本地 WASM，不允许通用 JavaScript unsafe-eval；测试区分两个精确策略项。
+- 回归不依赖真实 vendor；浏览器和便携、本机和独立环境的验收分开记录。

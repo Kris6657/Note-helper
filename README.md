@@ -45,7 +45,7 @@ python tools/prepare_vendor.py --download
 这只准备本项目的前端文件，不安装 npm，也不修改系统配置。已有文件的校验值不符时会停止，不会自动覆盖。已有两个固定版本的 `.tgz` 包时，也可以离线准备：
 
 ```powershell
-python tools/prepare_vendor.py --archive "pdfjs-dist=包目录/pdfjs-dist-3.11.174.tgz" --archive "marked=包目录/marked-12.0.2.tgz"
+python tools/prepare_vendor.py --archive "pdfjs-dist=包目录/pdfjs-dist-6.4.299.tgz" --archive "marked=包目录/marked-12.0.2.tgz"
 ```
 
 把示例中的「包目录」换成实际目录。版本、官方来源与 SHA-256 见 [vendor-manifest.json](vendor-manifest.json)。运行服务本身不会下载资源。
@@ -104,7 +104,7 @@ Note-helper/
 │   ├─ index.html
 │   ├─ style.css
 │   ├─ js/{app,notes,pdfview}.js
-│   ├─ vendor/                pdf.js + marked + cmaps（已本地化，离线可用）
+│   ├─ vendor/                版本化 PDF.js 模块、CMap、字体、WASM + marked（已本地化，离线可用）
 │   └─ selftest.html          出错时用的诊断页
 ├─ tools/
 │   ├─ prepare_vendor.py      前端资源检查与准备（默认不联网）
@@ -221,13 +221,19 @@ Note-helper/
 
 `courses/` 不受本项目 Git 保护。备份时同时保留 `notes.md`、`slides.pdf` 和 `annotations.json`；浏览器里的主题、模式与上次模块不属于课程备份。
 
+## 当前 PDF 资源与浏览器范围
+
+PDF.js 固定为 6.4.299，使用官方 legacy 兼容模块；新资源在 `web/vendor/pdfjs-6.4.299/`，含模块、worker、168 个 CMap、字体、色彩、WASM 与许可，加上 marked 共 204 个文件。旧资源不因留在工作目录就进入新包。
+
+回归可在未准备 vendor 的源码中独立运行；实际启动仍须先准备资源。已在 Windows Chrome 156 和 Edge 156 验证阅读、标记、保存恢复、本地 JPEG2000 解码及动态求值限制；其他浏览器版本尚无本项目完整验收。
+
 ## 第三方组件
 
 阅读服务使用 Python 标准库；前端资源放在 `web/vendor/`，通过准备脚本获取并在本机加载：
 
 | 组件 | 版本 | 许可证 | 用途 |
 |---|---|---|---|
-| pdf.js（Mozilla） | **3.11.174**（build `ce8716743`） | Apache-2.0 | 把课件 PDF 渲染成 canvas |
+| pdf.js（Mozilla） | **6.4.299** | Apache-2.0 | 把课件 PDF 渲染成 canvas |
 | pdf.js 的 `cmaps/` | 同上 | Adobe BSD | 中日韩字符映射资源，共 168 个 `.bcmap` |
 | marked | v12.0.2 | MIT | 把 `notes.md` 转成 HTML |
 
@@ -277,10 +283,10 @@ python -m pip install -r requirements-tools.txt
 
 ## 当前验证范围与限制
 
-- 已验证Windows + Python 3.13 的源码运行、34 项标准库回归及浏览器笔记／PDF 检查；其他系统尚无完整验收。
+- 已验证Windows + Python 3.13 的源码运行、35 项标准库回归及浏览器笔记／PDF 检查；其他系统尚无完整验收。
 - PDF 左栏目前只绘制图像，没有文字层，不能选择或通过浏览器 `Ctrl+F` 搜索课件文字；右栏笔记有独立搜索。
 - 批注冲突检查覆盖连接同一服务的多个窗口；没有跨独立服务进程的事务保证。
-- 现有 pdf.js 固定版本有上游安全公告；本地服务已禁止动态求值，组件升级仍待发行前评估。具体边界见第三方声明。
+- PDF.js 已固定为 6.4.299。服务禁止 JavaScript 动态求值，仅允许本地解码所需 WASM；仍需跟进组件公告，见第三方声明。
 - 可过滤的笔记 HTML、课程备份以及磁盘权限仍需按说明使用；没有自动备份或自动更新功能。
 
 ## 构建 Windows 便携预览
