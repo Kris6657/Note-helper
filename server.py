@@ -211,6 +211,9 @@ CTYPES = {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
     ".mjs": "text/javascript; charset=utf-8",
+    ".wasm": "application/wasm",
+    ".ttf": "font/ttf",
+    ".mjs": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".json": "application/json; charset=utf-8",
     ".svg": "image/svg+xml",
@@ -231,8 +234,8 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def end_headers(self):
-        # 禁止远程资源和动态求值；保留现有主题初始化与诊断页的内联脚本。
-        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+        # 禁止远程资源和 JavaScript 动态求值；仅允许本地 PDF 解码所需的 WASM。
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; "
                          "style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; img-src 'self'; "
                          "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
         self.send_header("X-Content-Type-Options", "nosniff")
@@ -446,11 +449,11 @@ def check_environment():
     if sys.version_info < (3, 8):
         raise RuntimeError("需要 Python 3.8 或更新版本。")
     required = ("index.html", "style.css", "js/app.js", "js/notes.js",
-                "js/pdfview.js", "vendor/marked.min.js", "vendor/pdf.min.js",
-                "vendor/pdf.worker.min.js")
+                "js/pdfview.js", "vendor/marked.min.js", "vendor/pdfjs-6.4.299/pdf.min.mjs",
+                "vendor/pdfjs-6.4.299/pdf.worker.min.mjs")
     missing = [name for name in required if not (WEB / name).is_file()]
-    if not (WEB / "vendor/cmaps").is_dir() or not any((WEB / "vendor/cmaps").glob("*.bcmap")):
-        missing.append("vendor/cmaps/*.bcmap")
+    if not (WEB / "vendor/pdfjs-6.4.299/cmaps").is_dir() or not any((WEB / "vendor/pdfjs-6.4.299/cmaps").glob("*.bcmap")):
+        missing.append("vendor/pdfjs-6.4.299/cmaps/*.bcmap")
     if missing:
         raise RuntimeError("缺少前端资源：%s。请按依赖清单准备资源后重试。" % "、".join(missing))
     try:

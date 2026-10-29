@@ -5,14 +5,30 @@
  * 再用 IntersectionObserver 在页面进入视野时才真正画 canvas，离开视野就回收。
  */
 
-const pdfjsLib = window.pdfjsLib;
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdf.worker.min.js';
+import * as pdfjsLib from '/vendor/pdfjs-6.4.299/pdf.min.mjs';
+export { pdfjsLib };
+export const PDF_RESOURCE_ROOT = '/vendor/pdfjs-6.4.299/';
+pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_RESOURCE_ROOT + 'pdf.worker.min.mjs';
+
+// Both the reader and diagnostics use the same display-layer loader.
+// No full Viewer or PDF scripting/sandbox module is loaded.
+export function createPdfDocument(url) {
+  return pdfjsLib.getDocument({
+    url,
+    cMapUrl: PDF_RESOURCE_ROOT + 'cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: PDF_RESOURCE_ROOT + 'standard_fonts/',
+    wasmUrl: PDF_RESOURCE_ROOT + 'wasm/',
+    iccUrl: PDF_RESOURCE_ROOT + 'iccs/',
+    useWorkerFetch: true,
+    enableXfa: false,
+  });
+}
 
 /* CMap 是「字符编码 → Unicode」的映射表。PDF 用了 CID 字体（中日韩最常见）却没把字体
    本身嵌进来时，pdf.js 只能靠它判断每个字节对应哪个字——缺了就是空白或乱码。
-   .bcmap 放在 web/vendor/cmaps/（跟 pdf.js 一样不入库，可从 pdfjs-dist 包重新取）。
+   .bcmap 放在 web/vendor/pdfjs-6.4.299/cmaps/（跟 pdf.js 一样不入库，可从 pdfjs-dist 包重新取）。
    按需加载：只有真遇上需要 CMap 的 PDF，才会去请求对应的那一个文件，平时零开销。 */
-const CMAP_URL = '/vendor/cmaps/';
 
 const GAP = 12;        // 页间距，需与 style.css 里 #pdfPages 的 gap 一致
 const PAD_TOP = 12;    // #pdfPages 的上内边距
@@ -52,7 +68,7 @@ export class PdfView {
   async load(url) {
     this.destroy();
     const seq = ++this._loadSeq;
-    const doc = await pdfjsLib.getDocument({ url, cMapUrl: CMAP_URL, cMapPacked: true }).promise;
+    const doc = await createPdfDocument(url).promise;
     if (seq !== this._loadSeq) { doc.destroy?.(); return; }   // 期间又切了模块，这份作废
     this.doc = doc;
 
@@ -147,7 +163,7 @@ export class PdfView {
       canvas.style.width = Math.round(vp.width) + 'px';
       canvas.style.height = Math.round(vp.height) + 'px';
       const ctx = canvas.getContext('2d', { alpha: false });
-      await page.render({ canvasContext: ctx, viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null }).promise;
+      await page.render({ canvas, canvasContext: ctx, viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null }).promise;
       if (this.pages[num - 1] !== p || p.el !== el || el.hidden) return;
       el.insertBefore(canvas, el.firstChild);
       p.canvas = canvas;

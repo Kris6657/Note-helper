@@ -14,10 +14,10 @@
 <body>
 <div id="s">running…</div>
 <pre id="d"></pre>
-<script src="/vendor/pdf.min.js"></script>
 <script src="/vendor/marked.min.js"></script>
 <script type="module">
 import { renderNotes, decorate, buildMastery } from './js/notes.js';
+import { pdfjsLib, PDF_RESOURCE_ROOT, createPdfDocument } from './js/pdfview.js';
 const s = document.getElementById('s'), d = document.getElementById('d');
 const log = m => { d.textContent += m + '\n'; };
 const withTimeout = (p, ms, tag) => Promise.race([
@@ -72,7 +72,7 @@ const du = (label, url) => withTimeout(fetch(url).then(async r => {
     log('笔记渲染检查通过：' + passed + ' 项（不读写课程批注）');
 
     log('pdfjsLib  = ' + (pdfjsLib.version || '?'));
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdf.worker.min.js';
+    check(pdfjsLib.version === '6.4.299', 'PDF.js 固定版本匹配');
 
     const list = await withTimeout(fetch('/api/modules').then(r => r.json()), 8000, 'modules');
     // 只读比较过滤前后的文字与 Markdown 块结构，帮助判断旧批注指纹是否可能变化。
@@ -101,12 +101,11 @@ const du = (label, url) => withTimeout(fetch(url).then(async r => {
     log('module    = ' + m.id);
 
     const dir = '/api/module/' + encodeURIComponent(m.course) + '/' + encodeURIComponent(m.module);
-    await du('worker.js ', '/vendor/pdf.worker.min.js');
+    await du('worker.mjs ', PDF_RESOURCE_ROOT + 'pdf.worker.min.mjs');
     await du('slides.pdf', dir + '/pdf');
 
     const t0 = performance.now();
-    const doc = await withTimeout(pdfjsLib.getDocument({ url: dir + '/pdf',
-      cMapUrl: '/vendor/cmaps/', cMapPacked: true, isEvalSupported: false }).promise, 20000, 'getDocument');
+    const doc = await withTimeout(createPdfDocument(dir + '/pdf').promise, 20000, 'getDocument');
     log('getDocument OK  pages=' + doc.numPages + '  ' + Math.round(performance.now() - t0) + 'ms');
 
     const page = await doc.getPage(1);
@@ -116,7 +115,7 @@ const du = (label, url) => withTimeout(fetch(url).then(async r => {
     const c = document.createElement('canvas');
     c.width = vp.width; c.height = vp.height;
     document.body.appendChild(c);
-    await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+    await page.render({ canvas: c, canvasContext: c.getContext('2d'), viewport: vp }).promise;
     log('page1 rendered');
 
     await doc.destroy();
