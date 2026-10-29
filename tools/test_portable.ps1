@@ -153,7 +153,7 @@ try {
     Assert-That (Test-Path -LiteralPath (Join-Path $bundle 'Note-helper.exe')) 'Manifest and file hashes match'
     Check-Exe $bundle 0
     Assert-That $true 'EXE starts without a Python command on PATH'
-    $worker = Assert-Inside (Join-Path $bundle '_internal/web/vendor/pdf.worker.min.js')
+    $worker = Assert-Inside (Join-Path $bundle '_internal/web/vendor/pdfjs-6.4.299/pdf.worker.min.mjs')
     $hiddenWorker = Assert-Inside ($worker+'.test-backup')
     Move-Item -LiteralPath $worker -Destination $hiddenWorker
     try { Check-Exe $bundle 1 } finally { Move-Item -LiteralPath $hiddenWorker -Destination $worker }

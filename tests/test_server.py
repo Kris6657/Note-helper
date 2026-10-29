@@ -171,11 +171,33 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request("POST", '{"blocks":{}}', headers)[0], 200)
         self.assertEqual((self.mod / "notes.md").read_bytes(), notes)
 
+    def test_module_and_wasm_resources_have_browser_mime_types(self):
+        fixtures = (("fixture.mjs", b"export const ready = true;", "text/javascript; charset=utf-8"),
+                    ("fixture.wasm", b"\x00asm\x01\x00\x00\x00", "application/wasm"))
+        vendor = self.root / "web/vendor"
+        vendor.mkdir(parents=True)
+        for name, body, expected_type in fixtures:
+            with self.subTest(name=name):
+                (vendor / name).write_bytes(body)
+                conn = http.client.HTTPConnection(server.HOST, self.httpd.server_port, timeout=3)
+                try:
+                    conn.request("GET", "/vendor/" + name)
+                    response = conn.getresponse()
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(response.getheader("Content-Type"), expected_type)
+                    self.assertEqual(response.read(), body)
+                finally:
+                    conn.close()
+
     def test_reject_foreign_host_and_disable_dynamic_evaluation(self):
         self.assertEqual(self.request(headers={"Host": "example.invalid"})[0], 403)
         _, headers, _ = self.request()
         policy = headers["Content-Security-Policy"]
-        self.assertNotIn("unsafe-eval", policy)
+        directives = {parts[0]: parts[1:] for part in policy.split(";")
+                      if (parts := part.strip().split())}
+        self.assertNotIn("'unsafe-eval'", directives["script-src"])
+        self.assertIn("'wasm-unsafe-eval'", directives["script-src"])
+        self.assertNotIn("*", directives["script-src"])
         self.assertIn("object-src 'none'", policy)
         self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
 
@@ -209,12 +231,25 @@ class StartupTests(unittest.TestCase):
                 server.check_environment()
 
     def test_unwritable_courses_has_actionable_error(self):
-        with tempfile.TemporaryDirectory() as tmp, \
-                patch.object(server, "COURSES", Path(tmp)), \
-                patch.object(server, "check_vendor", return_value=([], [])), \
-                patch.object(server.tempfile, "TemporaryFile", side_effect=PermissionError("denied")):
-            with self.assertRaisesRegex(RuntimeError, "课程目录不可写"):
-                server.check_environment()
+        # The permission error must be reachable in a checkout without vendor.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            web = root / "web"
+            names = ("index.html", "style.css", "js/app.js", "js/notes.js", "js/pdfview.js",
+                     "vendor/marked.min.js", "vendor/pdfjs-6.4.299/pdf.min.mjs",
+                     "vendor/pdfjs-6.4.299/pdf.worker.min.mjs",
+                     "vendor/pdfjs-6.4.299/cmaps/fixture.bcmap")
+            for name in names:
+                path = web / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"synthetic startup fixture")
+            with patch.object(server, "WEB", web), \
+                    patch.object(server, "COURSES", root / "courses"), \
+                    patch.object(server, "load_manifest", return_value={}), \
+                    patch.object(server, "check_vendor", return_value=([], [])), \
+                    patch.object(server.tempfile, "TemporaryFile", side_effect=PermissionError("denied")):
+                with self.assertRaisesRegex(RuntimeError, "课程目录不可写"):
+                    server.check_environment()
 
 
 class VendorTests(unittest.TestCase):
