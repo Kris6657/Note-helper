@@ -32,6 +32,7 @@ const du = (label, url) => withTimeout(fetch(url).then(async r => {
 }), 12000, label);
 
 (async () => {
+  let loadingTask;
   try {
     let passed = 0;
     const check = (condition, name) => {
@@ -105,7 +106,8 @@ const du = (label, url) => withTimeout(fetch(url).then(async r => {
     await du('slides.pdf', dir + '/pdf');
 
     const t0 = performance.now();
-    const doc = await withTimeout(createPdfDocument(dir + '/pdf').promise, 20000, 'getDocument');
+    loadingTask = createPdfDocument(dir + '/pdf');
+    const doc = await withTimeout(loadingTask.promise, 20000, 'getDocument');
     log('getDocument OK  pages=' + doc.numPages + '  ' + Math.round(performance.now() - t0) + 'ms');
 
     const page = await doc.getPage(1);
@@ -118,13 +120,14 @@ const du = (label, url) => withTimeout(fetch(url).then(async r => {
     await page.render({ canvas: c, canvasContext: c.getContext('2d'), viewport: vp }).promise;
     log('page1 rendered');
 
-    await doc.destroy();
     s.textContent = filtered ? '通道检查通过；部分笔记被过滤，请检查兼容性日志' : '笔记安全与 PDF 通道全部通过 ✓';
     s.className = filtered ? 'warn' : 'ok';
   } catch (e) {
     s.textContent = '失败：' + e.message;
     s.className = 'bad';
     log(String((e && e.stack) || e));
+  } finally {
+    await loadingTask?.destroy().catch(() => {});
   }
 })();
 </script>

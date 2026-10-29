@@ -50,6 +50,7 @@ export class PdfView {
     this.scrollEl = scrollEl;
     this.pagesEl = pagesEl;
     this.doc = null;
+    this.loadingTask = null;
     this.scale = 1.3;
     this.baseScale = 1.3;
     this.pages = [];         // [{ num, w, h, el, canvas, busy }]
@@ -68,26 +69,32 @@ export class PdfView {
   async load(url) {
     this.destroy();
     const seq = ++this._loadSeq;
-    const doc = await createPdfDocument(url).promise;
-    if (seq !== this._loadSeq) { doc.destroy?.(); return; }   // 期间又切了模块，这份作废
-    this.doc = doc;
+    const loadingTask = createPdfDocument(url);
+    this.loadingTask = loadingTask;
+    try {
+      const doc = await loadingTask.promise;
+      if (seq !== this._loadSeq) { await loadingTask.destroy(); return; }
+      this.doc = doc;
 
-    // 先在本地的数组里建好再一次性交出去：中途失败不会给 this.pages 留下半截数据，
-    // 而 _build() 一旦拿到半截 pages，滚动高度就全是错的。
-    const n = doc.numPages;
-    const pages = [];
-    for (let i = 1; i <= n; i++) {
-      const p = await doc.getPage(i);
-      if (seq !== this._loadSeq) { doc.destroy?.(); return; }
-      const vp = p.getViewport({ scale: 1 });
-      pages.push({ num: i, w: vp.width, h: vp.height, el: null, canvas: null, busy: false });
+      // Publish the page placeholders together after metadata is complete.
+      const pages = [];
+      for (let i = 1; i <= doc.numPages; i++) {
+        const p = await doc.getPage(i);
+        if (seq !== this._loadSeq) { await loadingTask.destroy(); return; }
+        const vp = p.getViewport({ scale: 1 });
+        pages.push({ num: i, w: vp.width, h: vp.height, el: null, canvas: null, busy: false });
+      }
+      this.pages = pages;
+      this._build();
+      this.scrollEl.scrollTop = 0;
+      this._bindScroll();
+      this._emit();
+    } catch (error) {
+      if (seq !== this._loadSeq) return; // A newer module owns the UI.
+      this.loadingTask = null;
+      await loadingTask.destroy().catch(() => {});
+      throw error;
     }
-    this.pages = pages;
-
-    this._build();
-    this.scrollEl.scrollTop = 0;
-    this._bindScroll();
-    this._emit();
   }
 
   // 按当前 scale 重建占位元素
@@ -292,6 +299,9 @@ export class PdfView {
     this.tops = [];
     this.visiblePages = [];
     this.pageFilter = null;
+    const loadingTask = this.loadingTask;
+    this.loadingTask = null;
     this.doc = null;
+    loadingTask?.destroy().catch(() => {});
   }
 }
